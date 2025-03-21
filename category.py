@@ -19,7 +19,7 @@ def objectid_to_str(obj):
 
 
 # 1. Create a Category
-@category_router.post("/category", response_model=Category)
+@category_router.post("/", response_model=Category)
 async def create_category(category: Category):
     existing_category = await categories_collection.find_one({"name": category.name})
     if existing_category:
@@ -31,7 +31,7 @@ async def create_category(category: Category):
     return category_data
 
 # 2. Get All Categories
-@category_router.get("/categories")
+@category_router.get("/")
 async def get_all_categories():
     try:
         # Fetch all categories from the database
