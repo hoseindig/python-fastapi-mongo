@@ -38,3 +38,10 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     name: Optional[str] = None
     password: Optional[str] = None
+
+# models.py
+from pydantic import BaseModel
+
+class Category(BaseModel):
+    name: str
+    description: str
