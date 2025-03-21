@@ -3,7 +3,6 @@ from pydantic import BaseModel
 from typing import List
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient
-from fastapi.responses import JSONResponse
 
 # MongoDB Connection
 client = AsyncIOMotorClient("mongodb://localhost:27017")
@@ -20,7 +19,7 @@ class TaskResponse(Task):
 
 # Task router to manage task operations
 router = APIRouter()
-
+###############################################
 # Get all tasks
 @router.get("/tasks/", response_model=List[TaskResponse])
 async def get_all_tasks():
@@ -36,6 +35,8 @@ async def get_all_tasks():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching tasks: {e}")
 
+
+###############################################
 # Get a single task by ID
 @router.get("/tasks/{task_id}", response_model=TaskResponse)
 async def get_task_by_id(task_id: str):
@@ -49,27 +50,33 @@ async def get_task_by_id(task_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching task by ID: {e}")
 
+###############################################
 # Create a new task
 @router.post("/tasks/", response_model=TaskResponse)
 async def create_task(task: Task):
+    # Check if the task title already exists
+    existing_task = await tasks_collection.find_one({"title": task.title})
+    
+    if existing_task:
+        raise HTTPException(status_code=400, detail="Task title already exists")
+    
+    # Create the new task
     try:
-        # Check if task title already exists
-        existing_task = await tasks_collection.find_one({"title": task.title})
-        if existing_task:
-            raise HTTPException(status_code=400, detail="Task title already exists")
-
-        new_task = {
-            "title": task.title,
-            "completed": task.completed
-        }
-        result = await tasks_collection.insert_one(new_task)
-        created_task = await tasks_collection.find_one({"_id": result.inserted_id})
-        created_task["id"] = str(created_task["_id"])
-        del created_task["_id"]
-        return created_task
+        result = await tasks_collection.insert_one(task.dict())
+        
+        # Fetch the created task to include the generated ObjectId
+        new_task = await tasks_collection.find_one({"_id": result.inserted_id})
+        
+        # Convert ObjectId to string for response
+        new_task["id"] = str(new_task["_id"])
+        del new_task["_id"]  # Remove _id field
+        
+        return new_task
+    
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating task: {e}")
-
+        raise HTTPException(status_code=500, detail=f"Error creating task: {str(e)}")
+    
+###############################################
 # Update a task by ID
 @router.put("/tasks/{task_id}", response_model=TaskResponse)
 async def update_task(task_id: str, task: Task):
