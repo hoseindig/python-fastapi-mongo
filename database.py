@@ -8,6 +8,7 @@ db = client["your_database"]  # Replace with your database name
 
 # Initialize collection
 products_collection = db["products"]
+tasks_collection = db["tasks"]
 
 # Example of creating an index (optional but useful for performance)
 async def create_indexes():
