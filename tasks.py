@@ -108,10 +108,20 @@ async def update_task(task_id: str, task: Task):
 # Delete a task by ID
 @router.delete("/tasks/{task_id}")
 async def delete_task(task_id: str):
+    # Convert the task_id from string to ObjectId
     try:
-        result = await tasks_collection.delete_one({"_id": ObjectId(task_id)})
-        if result.deleted_count == 0:
-            raise HTTPException(status_code=404, detail="Task not found")
-        return JSONResponse(content={"message": "Task deleted successfully"})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting task: {e}")
+        task_object_id = ObjectId(task_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid task ID format")
+
+    # Check if the task exists in the database
+    task = await tasks_collection.find_one({"_id": task_object_id})
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # Delete the task
+    await tasks_collection.delete_one({"_id": task_object_id})
+
+    return {"message": "Task deleted successfully"}
+
