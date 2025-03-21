@@ -27,11 +27,15 @@ class Task(BaseModel):
 # Create Task
 @app.post("/tasks/", response_model=Task)
 async def create_task(task: Task):
+    # Check if a task with the same title already exists
+    existing_task = await collection.find_one({"title": task.title})
+    if existing_task:
+        raise HTTPException(status_code=400, detail="Task with this title already exists")
+    
     task_dict = task.dict()
     result = await collection.insert_one(task_dict)
-    # Convert the MongoDB generated ObjectId to a string and add it as 'id'
-    task_dict["id"] = str(result.inserted_id)  # Use 'id' instead of '_id'
-    del task_dict["_id"]  # Remove '_id' to avoid confusion in the response
+    task_dict["id"] = str(result.inserted_id)
+    del task_dict["_id"]
     return task_dict
 
 
@@ -66,11 +70,26 @@ async def get_task(task_id: str):
 
 # Update Task
 @app.put("/tasks/{task_id}", response_model=Task)
-async def update_task(task_id: str, updated_task: Task):
-    result = await collection.update_one({"_id": task_id}, {"$set": updated_task.dict()})
-    if result.modified_count == 0:
+async def update_task(task_id: str, task: Task):
+  # Check if the title already exists for another task
+    existing_task = await collection.find_one({"title": task.title, "_id": {"$ne": ObjectId(task_id)}})
+    if existing_task:
+        raise HTTPException(status_code=400, detail="Task with this title already exists")
+
+    # Proceed with the update
+    result = await collection.update_one(
+        {"_id": ObjectId(task_id)},
+        {"$set": {"title": task.title, "completed": task.completed}}
+    )
+    
+    if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Task not found")
-    return {**updated_task.dict(), "id": task_id}
+    
+    updated_task = await collection.find_one({"_id": ObjectId(task_id)})
+    updated_task["id"] = str(updated_task["_id"])
+    del updated_task["_id"]
+    
+    return updated_task
 
 # Delete Task
 @app.delete("/tasks/{task_id}")
