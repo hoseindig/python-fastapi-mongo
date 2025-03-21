@@ -28,6 +28,7 @@ class UserSignup(BaseModel):
     name: str
     family: str
     mobile: str  # Added Mobile
+    role: str = "user"  # Default role is 'user'
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -39,6 +40,7 @@ class UserUpdate(BaseModel):
     family: str = None
     mobile: str = None  # Added Mobile
     password: str = None
+    role: str = None  # Added Role
 
 class Token(BaseModel):
     access_token: str
@@ -61,7 +63,8 @@ async def signup(user: UserSignup):
         "password": hashed_password,
         "name": user.name,
         "family": user.family,
-        "mobile": user.mobile  # Store Mobile
+        "mobile": user.mobile,  # Store Mobile
+        "role": user.role  # Store Role
     }
     
     result = await users_collection.insert_one(user_data)
@@ -85,7 +88,7 @@ async def login(user: UserLogin):
 # Protected Route Example
 @router.get("/protected")
 async def protected_route(current_user: dict = Depends(get_current_user)):
-    return {"message": "You have access!", "user": current_user["email"]}
+    return {"message": "You have access!", "user": current_user["email"], "role": current_user["role"]}
 
 # Get User Info
 @router.get("/me")
@@ -94,7 +97,8 @@ async def get_user_info(current_user: dict = Depends(get_current_user)):
         "email": current_user["email"],
         "name": current_user.get("name"),
         "family": current_user.get("family"),
-        "mobile": current_user.get("mobile")  # Include Mobile
+        "mobile": current_user.get("mobile"),  # Include Mobile
+        "role": current_user.get("role")  # Include Role
     }
 
 # Update User Info
@@ -113,6 +117,9 @@ async def update_user_info(
         if existing_mobile and str(existing_mobile["_id"]) != str(current_user["_id"]):
             raise HTTPException(status_code=400, detail="Mobile number already in use")
 
+    if "role" in update_data and current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Permission denied to change role")
+
     result = await users_collection.update_one(
         {"_id": ObjectId(current_user["_id"])}, {"$set": update_data}
     )
@@ -122,7 +129,7 @@ async def update_user_info(
 
     return {"message": "User info updated successfully"}
 
-
+# Clear All Users Endpoint
 @router.delete("/clear-all-users")
 async def clear_all_users():
     result = await users_collection.delete_many({})
