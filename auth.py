@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pymongo.collection import Collection
 from bson import ObjectId
 from dependencies import get_current_user, users_collection
-from schemas import UserUpdate  # Use schemas instead of models
 
 # JWT Configuration
 SECRET_KEY = "your_secret_key"
@@ -26,10 +25,20 @@ router = APIRouter()
 class UserSignup(BaseModel):
     email: EmailStr
     password: str
+    name: str
+    family: str
+    mobile: str  # Added Mobile
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+class UserUpdate(BaseModel):
+    email: EmailStr = None
+    name: str = None
+    family: str = None
+    mobile: str = None  # Added Mobile
+    password: str = None
 
 class Token(BaseModel):
     access_token: str
@@ -42,8 +51,18 @@ async def signup(user: UserSignup):
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    existing_mobile = await users_collection.find_one({"mobile": user.mobile})
+    if existing_mobile:
+        raise HTTPException(status_code=400, detail="Mobile number already registered")
+
     hashed_password = pwd_context.hash(user.password)
-    user_data = {"email": user.email, "password": hashed_password}
+    user_data = {
+        "email": user.email,
+        "password": hashed_password,
+        "name": user.name,
+        "family": user.family,
+        "mobile": user.mobile  # Store Mobile
+    }
     
     result = await users_collection.insert_one(user_data)
     return {"message": "User created successfully", "user_id": str(result.inserted_id)}
@@ -69,9 +88,14 @@ async def protected_route(current_user: dict = Depends(get_current_user)):
     return {"message": "You have access!", "user": current_user["email"]}
 
 # Get User Info
-@router.get("/me", response_model=UserUpdate)
+@router.get("/me")
 async def get_user_info(current_user: dict = Depends(get_current_user)):
-    return {"email": current_user["email"], "name": current_user.get("name")}
+    return {
+        "email": current_user["email"],
+        "name": current_user.get("name"),
+        "family": current_user.get("family"),
+        "mobile": current_user.get("mobile")  # Include Mobile
+    }
 
 # Update User Info
 @router.put("/me/update")
@@ -83,6 +107,11 @@ async def update_user_info(
     
     if "password" in update_data:
         update_data["password"] = pwd_context.hash(update_data["password"])
+
+    if "mobile" in update_data:
+        existing_mobile = await users_collection.find_one({"mobile": update_data["mobile"]})
+        if existing_mobile and str(existing_mobile["_id"]) != str(current_user["_id"]):
+            raise HTTPException(status_code=400, detail="Mobile number already in use")
 
     result = await users_collection.update_one(
         {"_id": ObjectId(current_user["_id"])}, {"$set": update_data}
