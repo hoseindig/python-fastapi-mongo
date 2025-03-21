@@ -35,7 +35,7 @@ router = APIRouter()
 
 ##########################################
 # Get all products
-@router.get("/products/")
+@router.get("/")
 async def get_all_products():
     try:
         # Fetch all products from the database
@@ -77,7 +77,7 @@ async def get_product(product_id: str):
     
 ##########################################
 # Create a new product
-@router.post("/products/")
+@router.post("/")
 async def create_product(product: Product):
     try:
         # Check if product name already exists
