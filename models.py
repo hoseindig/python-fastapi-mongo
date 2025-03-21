@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field ,EmailStr
 from bson import ObjectId
 from typing import Optional
 
@@ -32,3 +32,9 @@ class Product(BaseModel):
 
     class Config:
         json_encoders = {ObjectId: str}
+
+
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    password: Optional[str] = None
