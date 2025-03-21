@@ -121,3 +121,12 @@ async def update_user_info(
         raise HTTPException(status_code=400, detail="No changes made")
 
     return {"message": "User info updated successfully"}
+
+
+@router.delete("/clear-all-users")
+async def clear_all_users():
+    result = await users_collection.delete_many({})
+    if result.deleted_count > 0:
+        return {"message": f"Successfully deleted {result.deleted_count} users."}
+    else:
+        return {"message": "No users found to delete."}
