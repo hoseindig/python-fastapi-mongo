@@ -47,8 +47,22 @@ router = APIRouter()
 async def get_all_products(user: dict = Depends(get_current_user)):
     try:
         products = await products_collection.find().to_list(length=100)
-        products = [{key: objectid_to_str(value) for key, value in product.items()} for product in products]
-        return products
+        
+        # Transform the products to replace _id with id
+        formatted_products = []
+        for product in products:
+            # Create a new dictionary with all the fields
+            formatted_product = {key: objectid_to_str(value) for key, value in product.items()}
+            
+            # Add 'id' field with the string value of '_id'
+            formatted_product['id'] = str(product['_id'])
+            
+            # Remove the '_id' field
+            del formatted_product['_id']
+            
+            formatted_products.append(formatted_product)
+            
+        return formatted_products
     except Exception as e:
         print(f"Error fetching products: {str(e)}")
         raise HTTPException(status_code=500, detail="Error fetching products")
@@ -85,8 +99,13 @@ async def create_product(product: Product, user: dict = Depends(get_current_user
         
         new_product = await products_collection.insert_one(product.dict())
         created_product = await products_collection.find_one({"_id": new_product.inserted_id})
-        created_product = {key: objectid_to_str(value) for key, value in created_product.items()}
-        return created_product
+        
+        # Transform the response to use 'id' instead of '_id'
+        created_product_formatted = {key: objectid_to_str(value) for key, value in created_product.items()}
+        created_product_formatted["id"] = str(created_product["_id"])
+        del created_product_formatted["_id"]
+        
+        return created_product_formatted
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
