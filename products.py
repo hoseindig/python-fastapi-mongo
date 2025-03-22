@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from bson import ObjectId
 from database import products_collection  # Your existing database connection
@@ -6,6 +6,8 @@ import re
 
 # Import categories collection from your database module
 from dependencies import db
+from auth import get_current_user  # Import authentication dependency
+
 categories_collection = db["categories"]
 
 class Product(BaseModel):
@@ -40,9 +42,9 @@ async def category_exists(category_id: str) -> bool:
 router = APIRouter()
 
 ##########################################
-# Get all products
+# Get all products (Protected Route)
 @router.get("/")
-async def get_all_products():
+async def get_all_products(user: dict = Depends(get_current_user)):
     try:
         products = await products_collection.find().to_list(length=100)
         products = [{key: objectid_to_str(value) for key, value in product.items()} for product in products]
@@ -52,9 +54,9 @@ async def get_all_products():
         raise HTTPException(status_code=500, detail="Error fetching products")
     
 ##########################################
-# Get a specific product by ID
+# Get a specific product by ID (Protected Route)
 @router.get("/products/{product_id}")
-async def get_product(product_id: str):
+async def get_product(product_id: str, user: dict = Depends(get_current_user)):
     if not is_valid_objectid(product_id):
         raise HTTPException(status_code=400, detail="Invalid product ID format")
     try:
@@ -68,9 +70,9 @@ async def get_product(product_id: str):
         raise HTTPException(status_code=500, detail=f"Error fetching product: {str(e)}")
     
 ##########################################
-# Create a new product
+# Create a new product (Protected Route)
 @router.post("/")
-async def create_product(product: Product):
+async def create_product(product: Product, user: dict = Depends(get_current_user)):
     try:
         # First, check if the category exists
         if not await category_exists(product.category_id):
@@ -92,9 +94,9 @@ async def create_product(product: Product):
         raise HTTPException(status_code=500, detail=f"Error creating product: {str(e)}")
     
 ##########################################
-# Update an existing product
+# Update an existing product (Protected Route)
 @router.put("/products/{product_id}")
-async def update_product(product_id: str, product: Product):
+async def update_product(product_id: str, product: Product, user: dict = Depends(get_current_user)):
     if not is_valid_objectid(product_id):
         raise HTTPException(status_code=400, detail="Invalid product ID format")
     
@@ -130,9 +132,9 @@ async def update_product(product_id: str, product: Product):
         raise HTTPException(status_code=500, detail=f"Error updating product: {str(e)}")
 
 ##########################################
-# Delete a product
+# Delete a product (Protected Route)
 @router.delete("/products/{product_id}")
-async def delete_product(product_id: str):
+async def delete_product(product_id: str, user: dict = Depends(get_current_user)):
     try:
         result = await products_collection.delete_one({"_id": ObjectId(product_id)})
         if result.deleted_count == 0:
@@ -141,9 +143,10 @@ async def delete_product(product_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting product: {str(e)}")
 
-# Clear All Products Endpoint
+##########################################
+# Clear All Products Endpoint (Protected Route)
 @router.delete("/clear-all-product")
-async def clear_all_product():
+async def clear_all_product(user: dict = Depends(get_current_user)):
     result = await products_collection.delete_many({})
     if result.deleted_count > 0:
         return {"message": f"Successfully deleted {result.deleted_count} products."}
