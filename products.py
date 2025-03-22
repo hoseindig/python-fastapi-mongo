@@ -69,7 +69,7 @@ async def get_all_products(user: dict = Depends(get_current_user)):
     
 ##########################################
 # Get a specific product by ID (Protected Route)
-@router.get("/products/{product_id}")
+@router.get("/{product_id}")
 async def get_product(product_id: str, user: dict = Depends(get_current_user)):
     if not is_valid_objectid(product_id):
         raise HTTPException(status_code=400, detail="Invalid product ID format")
@@ -114,7 +114,7 @@ async def create_product(product: Product, user: dict = Depends(get_current_user
     
 ##########################################
 # Update an existing product (Protected Route)
-@router.put("/products/{product_id}")
+@router.put("/{product_id}")
 async def update_product(product_id: str, product: Product, user: dict = Depends(get_current_user)):
     if not is_valid_objectid(product_id):
         raise HTTPException(status_code=400, detail="Invalid product ID format")
@@ -152,7 +152,7 @@ async def update_product(product_id: str, product: Product, user: dict = Depends
 
 ##########################################
 # Delete a product (Protected Route)
-@router.delete("/products/{product_id}")
+@router.delete("/{product_id}")
 async def delete_product(product_id: str, user: dict = Depends(get_current_user)):
     try:
         result = await products_collection.delete_one({"_id": ObjectId(product_id)})
