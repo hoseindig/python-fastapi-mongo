@@ -5,9 +5,7 @@ from database import products_collection  # Your existing database connection
 import re
 
 # Import categories collection from your database module
-from dependencies import db
-from auth import get_current_user  # Import authentication dependency
-
+from dependencies import db, get_current_user  # Import authentication dependency
 categories_collection = db["categories"]
 
 class Product(BaseModel):
@@ -15,6 +13,7 @@ class Product(BaseModel):
     price: float
     description: str
     category_id: str
+    image_id: str | None = None  # New field for image ID
 
     class Config:
         from_attributes = True  # Updated from orm_mode to from_attributes for Pydantic V2
@@ -42,35 +41,28 @@ async def category_exists(category_id: str) -> bool:
 router = APIRouter()
 
 ##########################################
-# Get all products (Protected Route)
+# Get all products
 @router.get("/")
-async def get_all_products(user: dict = Depends(get_current_user)):
+async def get_all_products(current_user: dict = Depends(get_current_user)):
     try:
         products = await products_collection.find().to_list(length=100)
-        
-        # Transform the products to replace _id with id
-        formatted_products = []
-        for product in products:
-            # Create a new dictionary with all the fields
-            formatted_product = {key: objectid_to_str(value) for key, value in product.items()}
-            
-            # Add 'id' field with the string value of '_id'
-            formatted_product['id'] = str(product['_id'])
-            
-            # Remove the '_id' field
-            del formatted_product['_id']
-            
-            formatted_products.append(formatted_product)
-            
-        return formatted_products
+        # products = [{"id": objectid_to_str(product["_id"], **{key: objectid_to_str(value) for key, value in product.items() if key != "_id"})} for product in products]
+        products = [
+            {
+                "id": objectid_to_str(product["_id"]),  
+                **{key: objectid_to_str(value) if isinstance(value, ObjectId) else value for key, value in product.items() if key != "_id"}
+            } 
+            for product in products
+        ]
+        return products
     except Exception as e:
         print(f"Error fetching products: {str(e)}")
         raise HTTPException(status_code=500, detail="Error fetching products")
     
 ##########################################
-# Get a specific product by ID (Protected Route)
-@router.get("/{product_id}")
-async def get_product(product_id: str, user: dict = Depends(get_current_user)):
+# Get a specific product by ID
+@router.get("/products/{product_id}")
+async def get_product(product_id: str, current_user: dict = Depends(get_current_user)):
     if not is_valid_objectid(product_id):
         raise HTTPException(status_code=400, detail="Invalid product ID format")
     try:
@@ -84,9 +76,9 @@ async def get_product(product_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Error fetching product: {str(e)}")
     
 ##########################################
-# Create a new product (Protected Route)
+# Create a new product
 @router.post("/")
-async def create_product(product: Product, user: dict = Depends(get_current_user)):
+async def create_product(product: Product, current_user: dict = Depends(get_current_user)):
     try:
         # First, check if the category exists
         if not await category_exists(product.category_id):
@@ -99,13 +91,8 @@ async def create_product(product: Product, user: dict = Depends(get_current_user
         
         new_product = await products_collection.insert_one(product.dict())
         created_product = await products_collection.find_one({"_id": new_product.inserted_id})
-        
-        # Transform the response to use 'id' instead of '_id'
-        created_product_formatted = {key: objectid_to_str(value) for key, value in created_product.items()}
-        created_product_formatted["id"] = str(created_product["_id"])
-        del created_product_formatted["_id"]
-        
-        return created_product_formatted
+        created_product = {key: objectid_to_str(value) for key, value in created_product.items()}
+        return created_product
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
@@ -113,9 +100,9 @@ async def create_product(product: Product, user: dict = Depends(get_current_user
         raise HTTPException(status_code=500, detail=f"Error creating product: {str(e)}")
     
 ##########################################
-# Update an existing product (Protected Route)
-@router.put("/{product_id}")
-async def update_product(product_id: str, product: Product, user: dict = Depends(get_current_user)):
+# Update an existing product
+@router.put("/products/{product_id}")
+async def update_product(product_id: str, product: Product, current_user: dict = Depends(get_current_user)):
     if not is_valid_objectid(product_id):
         raise HTTPException(status_code=400, detail="Invalid product ID format")
     
@@ -151,9 +138,9 @@ async def update_product(product_id: str, product: Product, user: dict = Depends
         raise HTTPException(status_code=500, detail=f"Error updating product: {str(e)}")
 
 ##########################################
-# Delete a product (Protected Route)
-@router.delete("/{product_id}")
-async def delete_product(product_id: str, user: dict = Depends(get_current_user)):
+# Delete a product
+@router.delete("/products/{product_id}")
+async def delete_product(product_id: str, current_user: dict = Depends(get_current_user)):
     try:
         result = await products_collection.delete_one({"_id": ObjectId(product_id)})
         if result.deleted_count == 0:
@@ -162,10 +149,9 @@ async def delete_product(product_id: str, user: dict = Depends(get_current_user)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting product: {str(e)}")
 
-##########################################
-# Clear All Products Endpoint (Protected Route)
+# Clear All Products Endpoint
 @router.delete("/clear-all-product")
-async def clear_all_product(user: dict = Depends(get_current_user)):
+async def clear_all_product(current_user: dict = Depends(get_current_user)):
     result = await products_collection.delete_many({})
     if result.deleted_count > 0:
         return {"message": f"Successfully deleted {result.deleted_count} products."}
