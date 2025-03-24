@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field ,EmailStr
 from bson import ObjectId
 from typing import Optional
 
@@ -22,13 +22,30 @@ class Task(BaseModel):
     class Config:
         json_encoders = {ObjectId: str}
 
-# Product model
-class Product(BaseModel):
-    id: Optional[str] = Field(None, exclude=True)  # Exclude 'id' from OpenAPI schema
-    title: str
-    description: str
-    price: float
-    completed: bool = False
-
+class Category(BaseModel):
+    name: str
+    description: Optional[str] = None
+    
     class Config:
-        json_encoders = {ObjectId: str}
+        from_attributes = True  # Updated from orm_mode to from_attributes for Pydantic V2
+        populate_by_name = True
+
+class Product(BaseModel):
+    name: str
+    price: float
+    description: str
+    category_id: str
+    
+    class Config:
+        from_attributes = True  # Updated from orm_mode to from_attributes for Pydantic V2
+        populate_by_name = True
+
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    password: Optional[str] = None
+
+# models.py
+from pydantic import BaseModel
+
+ 
