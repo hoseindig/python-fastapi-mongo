@@ -4,6 +4,8 @@ from products import router as products_router
 from auth import router as auth_router  # Import auth routes
 from category import category_router
 from upload import router as upload_router  # Import the upload router
+from users import router as users_router
+
 
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
@@ -29,6 +31,7 @@ app.include_router(tasks_router, prefix="/tasks", tags=["tasks"])
 app.include_router(products_router, prefix="/products", tags=["products"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])  # Use /auth for authentication
 app.include_router(upload_router, prefix="/files", tags=["files"])  # Include upload router
+app.include_router(users_router, prefix="/users", tags=["users"])
 
 
 # Root endpoint
