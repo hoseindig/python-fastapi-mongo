@@ -94,11 +94,13 @@ async def protected_route(current_user: dict = Depends(get_current_user)):
 @router.get("/me")
 async def get_user_info(current_user: dict = Depends(get_current_user)):
     return {
+        "id": str(current_user["_id"]),  # Convert ObjectId to string
         "email": current_user["email"],
         "name": current_user.get("name"),
         "family": current_user.get("family"),
         "mobile": current_user.get("mobile"),  # Include Mobile
-        "role": current_user.get("role")  # Include Role
+        "role": current_user.get("role"),  # Include Role
+        "profile_image": current_user.get("profile_image", None)  # Include Profile Image
     }
 
 # Update User Info

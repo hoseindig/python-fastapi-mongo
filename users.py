@@ -109,13 +109,24 @@ async def update_user(
 
     return {"message": "User updated successfully"}
 
-# Delete User (Only Super Admin)
+# Delete User (Only Super Admin can delete, but cannot delete another Super Admin)
 @router.delete("/{user_id}")
 async def delete_user(user_id: str, current_user: dict = Depends(check_role(["super_admin"]))):
-    result = await users_collection.delete_one({"_id": ObjectId(user_id)})
-    if result.deleted_count == 0:
+    user_to_delete = await users_collection.find_one({"_id": ObjectId(user_id)})
+
+    if not user_to_delete:
         raise HTTPException(status_code=404, detail="User not found")
+
+    if user_to_delete["role"] == "super_admin":
+        raise HTTPException(status_code=403, detail="Super Admin cannot be deleted")
+
+    result = await users_collection.delete_one({"_id": ObjectId(user_id)})
+
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=400, detail="Failed to delete user")
+
     return {"message": "User deleted successfully"}
+
 
 # Get User by ID
 @router.get("/{user_id}")
